@@ -31,7 +31,7 @@ warm_up_time_seconds=${10}
 pgrep_pattern=${11} # should be jar file name without path
 pid=""
 
-# example /bin/bash bash/server-start.sh 200m 100 /home/pasindu/Desktop/Test/gc  /home/pasindu/Desktop/Test/sar /home/pasindu/Desktop/Test/perf  UseParallelGC 100 /home/pasindu/Desktop/Test/target/nio-1.0-SNAPSHOT.jar  120 2 nio-1.0-SNAPSHOT.jar
+# example execution: /bin/bash bash/server-start.sh 200m 100 /home/pasindu/Desktop/Test/gc  /home/pasindu/Desktop/Test/sar /home/pasindu/Desktop/Test/perf  UseParallelGC 100 /home/pasindu/Desktop/Test/target/nio-1.0-SNAPSHOT.jar  120 2 nio-1.0-SNAPSHOT.jar
 
 
 mkdir -p ${target_gc_logs_path}
