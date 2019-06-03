@@ -22,7 +22,8 @@
 #heap_sizes=(100m 4g)
 #message_sizes=(1024 10240)
 #garbage_collectors=(UseSerialGC UseParallelGC UseConcMarkSweepGC UseG1GC)
-backend_program_jars=(blocking blocking.disruptor nio nio2.actor nio.actor nio.disruptor nio.netty blocking.actor nio2 nio2.disruptor nio.actor.seda nio.disruptor.seda nio.queue.seda)
+#backend_program_jars=(blocking blocking.disruptor nio nio2.actor nio.actor nio.disruptor nio.netty blocking.actor nio2 nio2.disruptor nio.actor.seda nio.disruptor.seda nio.queue.seda)
+backend_program_jars=(nio.queue.seda nio.disruptor.seda)
 
 backend_host_ip=192.168.32.12
 backend_host_user=wso2
@@ -60,8 +61,9 @@ jmeter_payload_files_prefix=payload
 
 jmeter_gc_viewer_jar_file=/home/wso2/pasindu/gcviewer-1.36-SNAPSHOT.jar
 
-run_time_length_seconds=120
-warm_up_time_seconds=60 # check for min vs sec
+run_time_length_seconds=20
+warm_up_time_seconds=5 # check for min vs sec
+actual_run_time_seconds=15
 
 
 rm -r ${jmeter_jtl_location}/
@@ -89,9 +91,9 @@ echo "Finished generating payloads"
 
 echo "Testing for impact of concurrency"
 
-concurrent_users=(400 350 300 250 200 150 125 100 75 50 40 30 20 10 1)
-heap_sizes=(100m 4g)
-message_sizes=(1 102400)
+concurrent_users=(400)
+heap_sizes=(100m)
+message_sizes=(1)
 garbage_collectors=(UseParallelGC)
 
 for backend_program_jar in ${backend_program_jars[@]}
@@ -112,36 +114,21 @@ do
 
                     mkdir -p $jtl_report_location
                     #
-                    sshpass -p 'javawso2' ssh -n -f ${backend_host_user}@${backend_host_ip} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${backend_jar_files_root}/${backend_program_jar}/target/${backend_program_jar}-1.0-SNAPSHOT.jar ${run_time_length_seconds} ${warm_up_time_seconds} ${backend_program_jar}-1.0-SNAPSHOT.jar 'io' "
+                    sshpass -p 'javawso2' ssh -n -f ${backend_host_user}@${backend_host_ip} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${backend_jar_files_root}/${backend_program_jar}/target/${backend_program_jar}-1.0-SNAPSHOT.jar ${run_time_length_seconds} ${warm_up_time_seconds} java 'io'  ${actual_run_time_seconds}"
 
-                    while true
-                    do
-                        echo "Checking service"
-                            response_code=$(curl -s -o /dev/null -w "%{http_code}" http://${backend_host_ip}:4333/io?message=m)
-
-                            if [ $response_code -eq 200 ]; then
-
-                                echo "Backend Server started"
-                                break
-                            else
-                                sleep 10
-                            fi
-                    done
-
-
+                    sleep 10
 
                     message=$(<${jmeter_payloads_output_file_root}/${jmeter_payload_files_prefix}${size})
 
+                    # Start JMeter server - no keep alives
 
-                    # Start JMeter server
+                    echo "Starting Jmeter"
 
-#                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=4333 -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -n -t ${jmeter_jmx_file_root/io.jmx} -l ${jtl_report_location}/results.jtl
+                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=4333 -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=io -Jgroup1.param=message -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
 
 
 
                 done
-
-
             done
         done
     done
