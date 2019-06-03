@@ -51,7 +51,7 @@ jmeter_jmeter_path=/home/wso2/pasindu/apache-jmeter-4.0/bin
 
 jmeter_performance_report_python_file=/home/wso2/pasindu/performance-report.py
 
-jmeter_payload_generator_python_file=/home/wso2/pasindu/payload-generator.py
+jmeter_payload_generator_python_file=/home/wso2/pasindu/payload_generator.py
 
 jmeter_performance_report_output_file=/home/wso2/pasindu/results.csv
 
@@ -61,9 +61,11 @@ jmeter_payload_files_prefix=payload
 
 jmeter_gc_viewer_jar_file=/home/wso2/pasindu/gcviewer-1.36-SNAPSHOT.jar
 
-run_time_length_seconds=20
-warm_up_time_seconds=5 # check for min vs sec
-actual_run_time_seconds=15
+run_time_length_seconds=120
+warm_up_time_seconds=60 # check for min vs sec
+warm_up_time_minutes=1
+
+actual_run_time_seconds=60
 
 
 rm -r ${jmeter_jtl_location}/
@@ -114,7 +116,7 @@ do
 
                     mkdir -p $jtl_report_location
                     #
-                    sshpass -p 'javawso2' ssh -n -f ${backend_host_user}@${backend_host_ip} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${backend_jar_files_root}/${backend_program_jar}/target/${backend_program_jar}-1.0-SNAPSHOT.jar ${run_time_length_seconds} ${warm_up_time_seconds} java 'io'  ${actual_run_time_seconds}"
+                    sshpass -p 'javawso2' ssh -n -f ${backend_host_user}@${backend_host_ip} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${backend_jar_files_root}/${backend_program_jar}/target/${backend_program_jar}-1.0-SNAPSHOT.jar ${run_time_length_seconds} ${warm_up_time_seconds} ${backend_program_jar}-1.0-SNAPSHOT.jar 'io'  ${actual_run_time_seconds}"
 
                     sleep 10
 
@@ -125,6 +127,81 @@ do
                     echo "Starting Jmeter"
 
                     ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=4333 -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=io -Jgroup1.param=message -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
+
+                    jtl_file=${jtl_report_location}/results.jtl
+
+                    echo "Splitting JTL"
+
+                    java -jar ${jmeter_jtl_splitter_jar_file} -f $jtl_file -t ${warm_up_time_minutes}
+
+                    jtl_file_measurement_for_this=${jtl_report_location}/results-measurement.jtl
+
+                    echo "Downloading GC Report"
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_gc_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt ${jmeter_gc_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    gc_log_for_this=${jmeter_gc_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    echo "Generating GC Reports"
+
+                    gc_report_file_for_this=${jmeter_gc_logs_report_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCReport.csv
+
+                    java -jar $jmeter_gc_viewer_jar_file $gc_log_for_this $gc_report_file_for_this
+
+                    echo "Downloading CPU SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    cpu_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    echo "Downloading Memory SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    memory_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    echo "Downloading Swap SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    swap_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    echo "Downloading IO SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    io_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    echo "Downloading INode SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    inode_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    echo "Downloading Context Switch SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    context_switch_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    echo "Downloading Run Queue SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    run_queue_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    echo "Downloading Network SAR"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt ${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    network_sar_file_for_this=${jmeter_sar_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    echo "Downloading Perf"
+
+                    sshpass -p 'javawso2' scp -r ${backend_host_user}@${backend_host_ip}:${backend_perf_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt ${jmeter_perf_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    perf_file_for_this=${jmeter_perf_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+
 
 
 

@@ -34,7 +34,7 @@ def get_memory_stats(filename):
 
 # result = get_memory_stats("/home/pasindu/Desktop/filename.txt")
 
-def get__swap_stats(filename):
+def get_swap_stats(filename):
     result = [['kbswpfree', 'kbswpused',  '%swpused',  'kbswpcad',   '%swpcad']]
     if os.path.isfile(filename):
         with open(filename) as f:
