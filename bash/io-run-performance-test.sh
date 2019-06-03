@@ -201,112 +201,12 @@ do
 
                     perf_file_for_this=${jmeter_perf_path}/${backend_program_jar}-1.0-SNAPSHOT.jar/io/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
 
+                    echo "Adding data to CSV file"
 
-
-
+                    python3 ${jmeter_performance_report_python_file} ${jmeter_performance_report_output_file} ${jtl_file_measurement_for_this} ${gc_report_file_for_this} ${cpu_sar_file_for_this} ${memory_sar_file_for_this} ${swap_sar_file_for_this} ${io_sar_file_for_this} ${inode_sar_file_for_this} ${context_switch_sar_file_for_this} ${run_queue_sar_file_for_this} ${network_sar_file_for_this} ${perf_file_for_this} ${actual_run_time_seconds}  ${backend_program_jar} io ${heap} ${u} ${gc} ${size}
 
                 done
             done
         done
     done
 done
-
-#echo "Completed Generating JTL files"
-#
-#
-#
-#echo "Copying GC logs to Jmeter server machine"
-#
-#
-#mkdir -p ${gc_logs_path}
-#sshpass -p 'javawso2' scp -r $springboot_host_user:${target_gc_logs_path} ${gc_logs_path}
-#
-#echo "Finished Copying GC logs to server machine"
-#
-#echo "Copying uptime logs to Jmeter server machine"
-#
-#
-#mkdir -p ${uptime_path}
-#sshpass -p 'javawso2' scp -r $springboot_host_user:${target_uptime_path} ${uptime_path}
-#
-#echo "Finished Copying uptime logs to server machine"
-#
-#echo "Splitting JTL"
-#
-#for size in ${message_sizes[@]}
-#do
-#
-#    for heap in ${heap_sizes[@]}
-#    do
-#        for u in ${concurrent_users[@]}
-#        do
-#            for gc in ${garbage_collectors[@]}
-#    	    do
-#        	    total_users=$(($u))
-#        	    jtl_file=${jtl_location}/${total_users}_users/${heap}_heap/${gc}_collector/${size}_message/results.jtl
-#		    java -jar ${jtl_splitter_path}/jtl-splitter-0.1.1-SNAPSHOT.jar -f $jtl_file -t $split_time -d
-#            done
-#        done
-#    done
-#done
-#
-#echo "Completed Splitting jtl files"
-#
-#echo "Generating Dash Boards"
-#
-#for size in ${message_sizes[@]}
-#do
-#    for heap in ${heap_sizes[@]}
-#    do
-#        for u in ${concurrent_users[@]}
-#        do
-#            for gc in ${garbage_collectors[@]}
-#    	    do
-#        	    total_users=$(($u))
-#        	    report_location=${dashboards_path}/${total_users}_users/${heap}_heap/${gc}_collector/${size}_message
-#        	    echo "Report location is ${report_location}"
-#        	    mkdir -p $report_location
-#
-#                    ${jmeter_path}/jmeter -g  ${jtl_location}/${total_users}_users/${heap}_heap/${gc}_collector/${size}_message/results-measurement.jtl   -o $report_location
-#            done
-#
-#        done
-#    done
-#done
-#
-#
-#echo "Completed generating dashboards"
-#
-#echo "Generating GC reports"
-#
-#mkdir -p $gc_logs_report_path
-#
-#
-#for size in ${message_sizes[@]}
-#do
-#    for heap in ${heap_sizes[@]}
-#    do
-#        for u in ${concurrent_users[@]}
-#        do
-#            for gc in ${garbage_collectors[@]}
-#    	    do
-#        	    total_users=$(($u))
-#        	    gc_file=${gc_logs_path}/GCLogs/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size_GCLog.txt
-#                    gc_report_file=$gc_logs_report_path/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size_GCReport.csv
-#                    java -jar $gc_viewer_jar_file $gc_file $gc_report_file
-#
-#            done
-#
-#        done
-#    done
-#done
-#
-#
-#echo "Completed generating GC reports"
-#
-#
-#echo "Generating the CSV file"
-#
-#python3 $performance_report_python_file  $jtl_location $gc_logs_report_path $uptime_path $dashboards_path $performance_report_output_file
-#
-#echo "Finished generating CSV file"
