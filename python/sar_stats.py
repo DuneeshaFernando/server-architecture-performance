@@ -18,7 +18,8 @@ def get_cpu_stats(filename):
 # result = get_cpu_stats("/home/pasindu/Desktop/filename.txt")
 
 def get_memory_stats(filename):
-    result = [['kbmemfree',   'kbavail', 'kbmemused',  '%memused', 'kbbuffers',  'kbcached',  'kbcommit',   '%commit',  'kbactive',   'kbinact',   'kbdirty',  'kbanonpg',    'kbslab',  'kbkstack',   'kbpgtbl',  'kbvmused']]
+    # result = [['kbmemfree',   'kbavail', 'kbmemused',  '%memused', 'kbbuffers',  'kbcached',  'kbcommit',   '%commit',  'kbactive',   'kbinact',   'kbdirty',  'kbanonpg',    'kbslab',  'kbkstack',   'kbpgtbl',  'kbvmused']]
+    result = [['kbmemfree', 'kbmemused',  '%memused', 'kbbuffers',  'kbcached',  'kbcommit',   '%commit',  'kbactive',   'kbinact',   'kbdirty',  'kbanonpg',    'kbslab',  'kbkstack',   'kbpgtbl',  'kbvmused']]
     if os.path.isfile(filename):
         with open(filename) as f:
             content = f.readlines()
@@ -132,7 +133,7 @@ def allZero(array):
     return True
 
 def get_network_stats(filename):
-    result = [['IFACE',   'rxpck/s',   'txpck/s',    'rxkB/s',    'txkB/s',   'rxcmp/s' ,  'txcmp/s' , 'rxmcst/s',   '%ifutil']]
+    result = [['rxpck/s',   'txpck/s',    'rxkB/s',    'txkB/s',   'rxcmp/s' ,  'txcmp/s' , 'rxmcst/s',   '%ifutil']]
     if os.path.isfile(filename):
         with open(filename) as f:
             content = f.readlines()
