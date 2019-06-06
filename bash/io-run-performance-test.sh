@@ -18,8 +18,8 @@
 # Run Performance Tests
 # ----------------------------------------------------------------------------
 
-# backend_program_jars=(blocking blocking.disruptor nio nio2.actor nio.actor nio.disruptor nio.netty blocking.actor nio2 nio2.disruptor nio.actor.seda nio.disruptor.seda nio.queue.seda)
-backend_program_jars=(nio)
+backend_program_jars=(blocking blocking.disruptor blocking.actor nio nio.disruptor nio.netty nio.actor nio.actor.seda nio.disruptor.seda nio.queue.seda nio2 nio2.actor nio2.disruptor)
+#backend_program_jars=(nio.disruptor.seda)
 
 backend_host_ip=192.168.32.12
 backend_host_user=wso2
@@ -89,9 +89,9 @@ echo "Finished generating payloads"
 
 echo "Testing for impact of concurrency"
 
-concurrent_users=(400)
-heap_sizes=(100m)
-message_sizes=(1)
+concurrent_users=(200)
+heap_sizes=(1g)
+message_sizes=(1024)
 garbage_collectors=(UseParallelGC)
 
 for backend_program_jar in ${backend_program_jars[@]}
@@ -117,6 +117,10 @@ do
                     sleep 10
 
                     message=$(<${jmeter_payloads_output_file_root}/${jmeter_payload_files_prefix}${size})
+
+                    echo "message"
+
+                    echo ${message}
 
                     # Start JMeter server - no keep alives
 

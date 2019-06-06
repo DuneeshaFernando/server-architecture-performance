@@ -51,30 +51,6 @@ nohup java -Xloggc:${target_gc_logs_path}/${pgrep_pattern}/${use_case}/${heap_si
 echo "Sleeping for warm up time"
 sleep $warm_up_time_seconds
 
-echo "Collecting CPU sar"
-nohup sar -u ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_cpu_sar.txt &
-
-echo "Collecting memory sar"
-nohup sar -r ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_memory_sar.txt &
-
-echo "Collecting swap sar"
-nohup sar -S 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_swap_sar.txt &
-
-echo "Collecting IO sar"
-nohup sar -b 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_io_sar.txt &
-
-echo "Collecting Inode sar"
-nohup sar -v 1  $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_inode_sar.txt &
-
-echo "Collecting Context Switch sar"
-nohup sar -w 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_context_switch_sar.txt &
-
-echo "Collecting Run Queue sar"
-nohup sar -q 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_run_queue_sar.txt &
-
-echo "Collecting Network sar"
-nohup sar -n DEV  1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_network_sar.txt &
-
 echo "Collecting Perf"
 
 script_dir=$(dirname "$0")
@@ -103,3 +79,27 @@ if [[ -n $pid ]]; then
 else
     echo "Process with pattern \"$pgrep_pattern\" not found!"
 fi
+
+echo "Collecting CPU sar"
+nohup sar -u ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_cpu_sar.txt &
+
+echo "Collecting memory sar"
+nohup sar -r ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_memory_sar.txt &
+
+echo "Collecting swap sar"
+nohup sar -S 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_swap_sar.txt &
+
+echo "Collecting IO sar"
+nohup sar -b 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_io_sar.txt &
+
+echo "Collecting Inode sar"
+nohup sar -v 1  $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_inode_sar.txt &
+
+echo "Collecting Context Switch sar"
+nohup sar -w 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_context_switch_sar.txt &
+
+echo "Collecting Run Queue sar"
+nohup sar -q 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_run_queue_sar.txt &
+
+echo "Collecting Network sar"
+nohup sar -n DEV  1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_network_sar.txt &
