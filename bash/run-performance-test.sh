@@ -18,8 +18,9 @@
 # Run Performance Tests
 # ----------------------------------------------------------------------------
 
-#backend_program_jars=(blocking blocking.disruptor blocking.actor nio nio.disruptor nio.netty nio.actor nio.actor.seda nio.disruptor.seda nio.queue.seda nio2 nio2.actor nio2.disruptor)
-backend_program_jars=(nio.queue.seda)
+# backend_program_jars=(blocking blocking.disruptor blocking.actor nio nio.disruptor nio.netty nio.actor nio.actor.seda nio.disruptor.seda nio.queue.seda nio2 nio2.actor nio2.disruptor)
+backend_program_jars=(blocking.disruptor nio.disruptor nio.disruptor.seda nio2.disruptor blocking blocking.actor nio nio.netty nio.actor nio.actor.seda nio.queue.seda nio2 nio2.actor)
+# backend_program_jars=(nio.queue.seda)
 
 backend_host_ip=192.168.32.12
 backend_host_user=wso2
@@ -57,10 +58,10 @@ jmeter_payload_files_prefix=payload
 
 jmeter_gc_viewer_jar_file=/home/wso2/pasindu/gcviewer-1.36-SNAPSHOT.jar
 
-run_time_length_seconds=900
+run_time_length_seconds=600
 warm_up_time_seconds=300 # check for min vs sec
 warm_up_time_minutes=5
-actual_run_time_seconds=600
+actual_run_time_seconds=300
 
 
 rm -r ${jmeter_jtl_location}/
@@ -88,7 +89,7 @@ echo "Finished generating payloads"
 
 concurrent_users=(300 10)
 heap_sizes=(2g 100m)
-message_sizes=(10240 10)
+message_sizes=(1024 10)
 garbage_collectors=(UseParallelGC)
 use_case=io
 param_name=message
@@ -333,7 +334,7 @@ do
     done
 done
 
-echo "################################## CPU Performance tests finished ############################################"
+#echo "################################## CPU Performance tests finished ############################################"
 
 #################################################################################################################################################################################
 
@@ -342,7 +343,7 @@ echo "Memory Performance Tests"
 
 concurrent_users=(300 10)
 heap_sizes=(2g 100m)
-message_sizes=(100000 10)
+message_sizes=(1000 10)
 garbage_collectors=(UseParallelGC)
 use_case=memory
 param_name=number
