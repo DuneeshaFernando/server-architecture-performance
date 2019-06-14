@@ -74,6 +74,9 @@ for i in range(30):
     avg_latency_labels.append(sorted_feature_importances[len(sorted_feature_importances) - 1][0])
 
 
+feature_labels, features, avg_latencies, througputs = load_data()
+feature_labels = feature_labels[0]
+
 # Create a random forest regression
 clf = RandomForestRegressor(n_estimators=1000, random_state=0, n_jobs=-1)
 
