@@ -25,14 +25,13 @@ target_sar_reports_path=$4
 target_perf_reports_path=$5
 gc=$6
 size=$7
-jar_file=$8
+architecture=$8
 run_time_length_seconds=$9
 warm_up_time_seconds=${10}
 pgrep_pattern=${11} # should be jar file name without path
 use_case=${12}
 pid=""
 actual_run_time_seconds=${13}
-# example execution: /bin/bash bash/server-start.sh 200m 100 /home/pasindu/Desktop/Test/gc  /home/pasindu/Desktop/Test/sar /home/pasindu/Desktop/Test/perf  UseParallelGC 100 /home/pasindu/Desktop/Test/target/nio-1.0-SNAPSHOT.jar  120 2 nio-1.0-SNAPSHOT.jar io
 
 
 mkdir -p ${target_gc_logs_path}/${pgrep_pattern}/${use_case}
