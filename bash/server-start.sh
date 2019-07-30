@@ -28,15 +28,16 @@ size=$7
 architecture=$8
 run_time_length_seconds=$9
 warm_up_time_seconds=${10}
-pgrep_pattern=${11} # should be jar file name without path
+pgrep_pattern=${11}
+pgrep_pattern=java
 use_case=${12}
 pid=""
 actual_run_time_seconds=${13}
 
 
-mkdir -p ${target_gc_logs_path}/${pgrep_pattern}/${use_case}
-mkdir -p ${target_sar_reports_path}/${pgrep_pattern}/${use_case}
-mkdir -p ${target_perf_reports_path}/${pgrep_pattern}/${use_case}
+mkdir -p ${target_gc_logs_path}/${architecture}/${use_case}
+mkdir -p ${target_sar_reports_path}/${architecture}/${use_case}
+mkdir -p ${target_perf_reports_path}/${architecture}/${use_case}
 
 
 killall java
@@ -44,8 +45,8 @@ sleep 5
 killall java
 
 echo "Starting Server"
-
-nohup java -Xloggc:${target_gc_logs_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_GCLog.txt  -verbose:gc -XX:+PrintGCDateStamps -XX:+${gc} -Xms${heap_size} -Xmx${heap_size}  -jar $jar_file &
+export JVM_MEM_OPTS="-Xms${heap_size} -Xmx${heap_size} -Xloggc:${target_gc_logs_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_GCLog.txt -verbose:gc -XX:+PrintGCDateStamps -XX:+${gc}"
+nohup /bin/bash /home/ubuntu/pasindu/ballerina-0.991.0-${architecture}/bin/ballerina run /home/ubuntu/pasindu/microbenchmark.bal
 
 echo "Sleeping for warm up time"
 sleep $warm_up_time_seconds
@@ -73,32 +74,32 @@ done
 
 if [[ -n $pid ]]; then
     echo "Collecting perf stats of the process ID ($pid) with pattern: $pgrep_pattern"
-    nohup perf stat -o ${target_perf_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_perf.txt -e task-clock,context-switches,cpu-migrations,page-faults,cache-misses,cycles,instructions,branches,branch-misses  -d -d -p ${pid} -- sleep $actual_run_time_seconds &
+    nohup perf stat -o ${target_perf_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_perf.txt -e task-clock,context-switches,cpu-migrations,page-faults,cache-misses,cycles,instructions,branches,branch-misses  -d -d -p ${pid} -- sleep $actual_run_time_seconds &
     echo "perf process ID: $!"
 else
     echo "Process with pattern \"$pgrep_pattern\" not found!"
 fi
 
 echo "Collecting CPU sar"
-nohup sar -u ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_cpu_sar.txt &
+nohup sar -u ALL 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_cpu_sar.txt &
 
 echo "Collecting memory sar"
-nohup sar -r ALL 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_memory_sar.txt &
+nohup sar -r ALL 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_memory_sar.txt &
 
 echo "Collecting swap sar"
-nohup sar -S 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_swap_sar.txt &
+nohup sar -S 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_swap_sar.txt &
 
 echo "Collecting IO sar"
-nohup sar -b 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_io_sar.txt &
+nohup sar -b 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_io_sar.txt &
 
 echo "Collecting Inode sar"
-nohup sar -v 1  $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_inode_sar.txt &
+nohup sar -v 20  $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_inode_sar.txt &
 
 echo "Collecting Context Switch sar"
-nohup sar -w 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_context_switch_sar.txt &
+nohup sar -w 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_context_switch_sar.txt &
 
 echo "Collecting Run Queue sar"
-nohup sar -q 1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_run_queue_sar.txt &
+nohup sar -q 20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_run_queue_sar.txt &
 
 echo "Collecting Network sar"
-nohup sar -n DEV  1 $actual_run_time_seconds > ${target_sar_reports_path}/${pgrep_pattern}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_network_sar.txt &
+nohup sar -n DEV  20 $actual_run_time_seconds > ${target_sar_reports_path}/${architecture}/${use_case}/${heap_size}_Heap_${num_users}_Users_${gc}_collector_${size}_size_network_sar.txt &

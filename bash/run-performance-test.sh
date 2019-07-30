@@ -21,7 +21,7 @@
 server_architectures=(nio oio seda)
 
 backend_host_ip=192.168.32.12 # to be changed
-backend_host_port=9090 # to be changed
+backend_host_port=9090
 backend_host_user=ubuntu
 backend_host_key=/home/ubuntu/pasindu/pasindut-ballerina.pem
 
@@ -58,7 +58,7 @@ jmeter_payload_files_prefix=payload
 jmeter_gc_viewer_jar_file=/home/ubuntu/pasindu/gcviewer-1.36-SNAPSHOT.jar
 
 run_time_length_seconds=120
-warm_up_time_seconds=60 # check for min vs sec
+warm_up_time_seconds=60
 warm_up_time_minutes=1
 actual_run_time_seconds=60
 
@@ -88,7 +88,7 @@ echo "Finished generating payloads"
 
 concurrent_users=(10000 5000 1000 500 100 10)
 heap_sizes=(8g)
-message_sizes=(102400 1024 10)
+message_sizes=(102400 10240 1024)
 garbage_collectors=(UseParallelGC)
 use_case=io
 param_name=message
@@ -112,7 +112,7 @@ do
 
                     mkdir -p $jtl_report_location
 
-                    nohup ssh  -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
+                    nohup ssh -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
 
                     sleep 10
 
@@ -210,14 +210,124 @@ echo "################################## IO Performance tests finished #########
 ################################################################################################################################################################################
 echo "CPU Performance Tests"
 
-concurrent_users=(300 10)
-heap_sizes=(2g 100m)
-message_sizes=(27059 11)
+concurrent_users=(10000 5000 1000 500 100 10)
+heap_sizes=(8g)
+message_sizes=(102400 10240 1024)
 garbage_collectors=(UseParallelGC)
 use_case=cpu
 param_name=number
 request_timeout=50000
 
+for architecture in ${server_architectures[@]}
+do
+    for size in ${message_sizes[@]}
+    do
+        for heap in ${heap_sizes[@]}
+        do
+            for u in ${concurrent_users[@]}
+            do
+                for gc in ${garbage_collectors[@]}
+                do
+                    total_users=$(($u))
+
+                    jtl_report_location=${jmeter_jtl_location}/${architecture}/${use_case}/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size
+
+                    echo "Report location is ${jtl_report_location}"
+
+                    mkdir -p $jtl_report_location
+
+                    nohup ssh -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
+
+                    sleep 10
+
+                    message=${size}
+
+                    echo "Starting Jmeter"
+
+                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=${backend_host_port} -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=${use_case} -Jgroup1.param=${param_name} -Jgroup1.timeout=${request_timeout} -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
+
+                    jtl_file=${jtl_report_location}/results.jtl
+
+                    echo "Splitting JTL"
+
+                    java -jar ${jmeter_jtl_splitter_jar_file} -f $jtl_file -t ${warm_up_time_minutes}
+
+                    jtl_file_measurement_for_this=${jtl_report_location}/results-measurement.jtl
+
+                    echo "Downloading GC Report"
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_gc_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt ${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    gc_log_for_this=${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    echo "Generating GC Reports"
+
+                    gc_report_file_for_this=${jmeter_gc_logs_report_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCReport.csv
+
+                    java -jar $jmeter_gc_viewer_jar_file $gc_log_for_this $gc_report_file_for_this
+#
+                    echo "Downloading CPU SAR"
+
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    cpu_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    echo "Downloading Memory SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    memory_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    echo "Downloading Swap SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    swap_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    echo "Downloading IO SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    io_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    echo "Downloading INode SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    inode_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    echo "Downloading Context Switch SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    context_switch_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    echo "Downloading Run Queue SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    run_queue_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    echo "Downloading Network SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    network_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    echo "Downloading Perf"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_perf_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt ${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    perf_file_for_this=${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    echo "Adding data to CSV file"
+
+                    python3 ${jmeter_performance_report_python_file} ${jmeter_performance_report_output_file} ${jtl_file_measurement_for_this} ${gc_report_file_for_this} ${cpu_sar_file_for_this} ${memory_sar_file_for_this} ${swap_sar_file_for_this} ${io_sar_file_for_this} ${inode_sar_file_for_this} ${context_switch_sar_file_for_this} ${run_queue_sar_file_for_this} ${network_sar_file_for_this} ${perf_file_for_this} ${actual_run_time_seconds}  ${architecture} ${use_case} ${heap} ${u} ${gc} ${size}
+
+                done
+            done
+        done
+    done
+done
 
 echo "################################## CPU Performance tests finished ############################################"
 
@@ -226,14 +336,125 @@ echo "################################## CPU Performance tests finished ########
 echo "Memory Performance Tests"
 
 
-concurrent_users=(300 10)
-heap_sizes=(2g 100m)
-message_sizes=(1000 10)
+concurrent_users=(10000 5000 1000 500 100 10)
+heap_sizes=(200m 500m 1g 4g 8g)
+message_sizes=(10240 1024 10)
 garbage_collectors=(UseParallelGC)
 use_case=memory
 param_name=number
 request_timeout=50000
 
+
+for architecture in ${server_architectures[@]}
+do
+    for size in ${message_sizes[@]}
+    do
+        for heap in ${heap_sizes[@]}
+        do
+            for u in ${concurrent_users[@]}
+            do
+                for gc in ${garbage_collectors[@]}
+                do
+                    total_users=$(($u))
+
+                    jtl_report_location=${jmeter_jtl_location}/${architecture}/${use_case}/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size
+
+                    echo "Report location is ${jtl_report_location}"
+
+                    mkdir -p $jtl_report_location
+
+                    nohup ssh -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
+
+                    sleep 10
+
+                    message=${size}
+
+                    echo "Starting Jmeter"
+
+                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=${backend_host_port} -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=${use_case} -Jgroup1.param=${param_name} -Jgroup1.timeout=${request_timeout} -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
+
+                    jtl_file=${jtl_report_location}/results.jtl
+
+                    echo "Splitting JTL"
+
+                    java -jar ${jmeter_jtl_splitter_jar_file} -f $jtl_file -t ${warm_up_time_minutes}
+
+                    jtl_file_measurement_for_this=${jtl_report_location}/results-measurement.jtl
+
+                    echo "Downloading GC Report"
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_gc_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt ${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    gc_log_for_this=${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    echo "Generating GC Reports"
+
+                    gc_report_file_for_this=${jmeter_gc_logs_report_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCReport.csv
+
+                    java -jar $jmeter_gc_viewer_jar_file $gc_log_for_this $gc_report_file_for_this
+#
+                    echo "Downloading CPU SAR"
+
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    cpu_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    echo "Downloading Memory SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    memory_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    echo "Downloading Swap SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    swap_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    echo "Downloading IO SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    io_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    echo "Downloading INode SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    inode_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    echo "Downloading Context Switch SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    context_switch_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    echo "Downloading Run Queue SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    run_queue_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    echo "Downloading Network SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    network_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    echo "Downloading Perf"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_perf_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt ${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    perf_file_for_this=${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    echo "Adding data to CSV file"
+
+                    python3 ${jmeter_performance_report_python_file} ${jmeter_performance_report_output_file} ${jtl_file_measurement_for_this} ${gc_report_file_for_this} ${cpu_sar_file_for_this} ${memory_sar_file_for_this} ${swap_sar_file_for_this} ${io_sar_file_for_this} ${inode_sar_file_for_this} ${context_switch_sar_file_for_this} ${run_queue_sar_file_for_this} ${network_sar_file_for_this} ${perf_file_for_this} ${actual_run_time_seconds}  ${architecture} ${use_case} ${heap} ${u} ${gc} ${size}
+
+                done
+            done
+        done
+    done
+done
 
 
 echo "################################## Memory Performance tests finished ############################################"
@@ -242,18 +463,251 @@ echo "################################## Memory Performance tests finished #####
 
 echo "DB Performance Tests"
 
-
-concurrent_users=(300 10)
-heap_sizes=(2g 100m)
-message_sizes=(NA)
+concurrent_users=(10000 5000 1000 500 100 10)
+heap_sizes=(8g)
+message_sizes=(1)
 garbage_collectors=(UseParallelGC)
 use_case=db
 param_name=id
 request_timeout=50000
 
+for architecture in ${server_architectures[@]}
+do
+    for size in ${message_sizes[@]}
+    do
+        for heap in ${heap_sizes[@]}
+        do
+            for u in ${concurrent_users[@]}
+            do
+                for gc in ${garbage_collectors[@]}
+                do
+                    total_users=$(($u))
 
+                    jtl_report_location=${jmeter_jtl_location}/${architecture}/${use_case}/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size
+
+                    echo "Report location is ${jtl_report_location}"
+
+                    mkdir -p $jtl_report_location
+
+                    nohup ssh -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
+
+                    sleep 10
+
+                    message=${size}
+
+                    echo "Starting Jmeter"
+
+                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=${backend_host_port} -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=${use_case} -Jgroup1.param=${param_name} -Jgroup1.timeout=${request_timeout} -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
+
+                    jtl_file=${jtl_report_location}/results.jtl
+
+                    echo "Splitting JTL"
+
+                    java -jar ${jmeter_jtl_splitter_jar_file} -f $jtl_file -t ${warm_up_time_minutes}
+
+                    jtl_file_measurement_for_this=${jtl_report_location}/results-measurement.jtl
+
+                    echo "Downloading GC Report"
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_gc_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt ${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    gc_log_for_this=${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    echo "Generating GC Reports"
+
+                    gc_report_file_for_this=${jmeter_gc_logs_report_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCReport.csv
+
+                    java -jar $jmeter_gc_viewer_jar_file $gc_log_for_this $gc_report_file_for_this
+#
+                    echo "Downloading CPU SAR"
+
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    cpu_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    echo "Downloading Memory SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    memory_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    echo "Downloading Swap SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    swap_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    echo "Downloading IO SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    io_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    echo "Downloading INode SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    inode_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    echo "Downloading Context Switch SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    context_switch_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    echo "Downloading Run Queue SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    run_queue_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    echo "Downloading Network SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    network_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    echo "Downloading Perf"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_perf_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt ${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    perf_file_for_this=${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    echo "Adding data to CSV file"
+
+                    python3 ${jmeter_performance_report_python_file} ${jmeter_performance_report_output_file} ${jtl_file_measurement_for_this} ${gc_report_file_for_this} ${cpu_sar_file_for_this} ${memory_sar_file_for_this} ${swap_sar_file_for_this} ${io_sar_file_for_this} ${inode_sar_file_for_this} ${context_switch_sar_file_for_this} ${run_queue_sar_file_for_this} ${network_sar_file_for_this} ${perf_file_for_this} ${actual_run_time_seconds}  ${architecture} ${use_case} ${heap} ${u} ${gc} ${size}
+
+                done
+            done
+        done
+    done
+done
 
 echo "################################## DB Performance tests finished ############################################"
+
+###############################################################################################################################################################################
+
+echo "File Performance Tests"
+
+concurrent_users=(10000 5000 1000 500 100 10)
+heap_sizes=(8g)
+message_sizes=(512000 20480 3072 227)
+garbage_collectors=(UseParallelGC)
+use_case=file
+param_name=file
+request_timeout=50000
+
+for architecture in ${server_architectures[@]}
+do
+    for size in ${message_sizes[@]}
+    do
+        for heap in ${heap_sizes[@]}
+        do
+            for u in ${concurrent_users[@]}
+            do
+                for gc in ${garbage_collectors[@]}
+                do
+                    total_users=$(($u))
+
+                    jtl_report_location=${jmeter_jtl_location}/${architecture}/${use_case}/${heap}_Heap_${total_users}_Users_${gc}_collector_${size}_size
+
+                    echo "Report location is ${jtl_report_location}"
+
+                    mkdir -p $jtl_report_location
+
+                    nohup ssh -n -f ${backend_host_user}@${backend_host_ip} -i ${backend_host_key} "/bin/bash $backend_script ${heap} ${u} ${backend_gc_path} ${backend_sar_path} ${backend_perf_path} ${gc} ${size} ${architecture} ${run_time_length_seconds} ${warm_up_time_seconds} java ${use_case}  ${actual_run_time_seconds}" &
+
+                    sleep 10
+
+                    message=${size}
+
+                    echo "Starting Jmeter"
+
+                    ${jmeter_jmeter_path}/jmeter  -Jgroup1.host=${backend_host_ip}  -Jgroup1.port=${backend_host_port} -Jgroup1.threads=$u -Jgroup1.seconds=${run_time_length_seconds} -Jgroup1.data=${message} -Jgroup1.endpoint=${use_case} -Jgroup1.param=${param_name} -Jgroup1.timeout=${request_timeout} -n -t ${jmeter_jmx_file_root}/jmeter.jmx -l ${jtl_report_location}/results.jtl
+
+                    jtl_file=${jtl_report_location}/results.jtl
+
+                    echo "Splitting JTL"
+
+                    java -jar ${jmeter_jtl_splitter_jar_file} -f $jtl_file -t ${warm_up_time_minutes}
+
+                    jtl_file_measurement_for_this=${jtl_report_location}/results-measurement.jtl
+
+                    echo "Downloading GC Report"
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_gc_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt ${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    gc_log_for_this=${jmeter_gc_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCLog.txt
+
+                    echo "Generating GC Reports"
+
+                    gc_report_file_for_this=${jmeter_gc_logs_report_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_GCReport.csv
+
+                    java -jar $jmeter_gc_viewer_jar_file $gc_log_for_this $gc_report_file_for_this
+#
+                    echo "Downloading CPU SAR"
+
+                    scp -i pasindut.pem -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    cpu_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_cpu_sar.txt
+
+                    echo "Downloading Memory SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    memory_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_memory_sar.txt
+
+                    echo "Downloading Swap SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    swap_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_swap_sar.txt
+
+                    echo "Downloading IO SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    io_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_io_sar.txt
+
+                    echo "Downloading INode SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    inode_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_inode_sar.txt
+
+                    echo "Downloading Context Switch SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    context_switch_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_context_switch_sar.txt
+
+                    echo "Downloading Run Queue SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    run_queue_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_run_queue_sar.txt
+
+                    echo "Downloading Network SAR"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_sar_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt ${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    network_sar_file_for_this=${jmeter_sar_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_network_sar.txt
+
+                    echo "Downloading Perf"
+
+                    scp -i pasindut.pem  -r ${backend_host_user}@${backend_host_ip}:${backend_perf_path}/${architecture}/${use_case}/${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt ${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    perf_file_for_this=${jmeter_perf_path}/${architecture}_${use_case}_${heap}_Heap_${u}_Users_${gc}_collector_${size}_size_perf.txt
+
+                    echo "Adding data to CSV file"
+
+                    python3 ${jmeter_performance_report_python_file} ${jmeter_performance_report_output_file} ${jtl_file_measurement_for_this} ${gc_report_file_for_this} ${cpu_sar_file_for_this} ${memory_sar_file_for_this} ${swap_sar_file_for_this} ${io_sar_file_for_this} ${inode_sar_file_for_this} ${context_switch_sar_file_for_this} ${run_queue_sar_file_for_this} ${network_sar_file_for_this} ${perf_file_for_this} ${actual_run_time_seconds}  ${architecture} ${use_case} ${heap} ${u} ${gc} ${size}
+
+                done
+            done
+        done
+    done
+done
+
+echo "################################## File Performance tests finished ############################################"
 
 ###############################################################################################################################################################################
 
